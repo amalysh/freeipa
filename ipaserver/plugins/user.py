@@ -65,7 +65,7 @@ from ipalib import output
 from ipaplatform.paths import paths
 from ipapython.dn import DN
 from ipapython.ipaldap import LDAPClient
-from ipapython.ipautil import ipa_generate_password, TMP_PWD_ENTROPY_BITS
+from ipapython.ipautil import ipa_generate_password, TMP_PWD_ENTROPY_BITS, run
 from ipalib.capabilities import client_has_capability
 
 if six.PY3:
@@ -621,7 +621,16 @@ class user_add(baseuser_add):
         self.obj.get_preserved_attribute(entry_attrs, options)
 
         self.post_common_callback(ldap, dn, entry_attrs, *keys, **options)
-
+        
+        # Check config and call ipa_user_script if available
+        if 'ipa_user_script' in self.api.env:
+            try:
+                self.log.debug("running %s %s %s" % (self.api.env.ipa_user_script, "add", dn))
+                run([self.api.env.ipa_user_script, "add", "%s" % dn])
+            except:
+                self.log.error("error runing %s" % self.api.env.ipa_user_script)
+                pass
+            
         return dn
 
 
@@ -728,6 +737,15 @@ class user_del(baseuser_del):
             else:
                 self.api.Command.otptoken_del(token)
 
+        # If there is a ipa_user_script set in configuration, call it out
+        if 'ipa_user_script' in self.api.env:
+            try:
+                self.log.debug("running %s %s %s" % (self.api.env.ipa_user_script, "del", dn))
+                run([self.api.env.ipa_user_script, "del", "%s" % dn])
+            except:
+                self.log.error("error runing %s" % self.api.env.ipa_user_script)
+                pass
+
         return dn
 
     def execute(self, *keys, **options):
@@ -780,6 +798,13 @@ class user_mod(baseuser_mod):
     def post_callback(self, ldap, dn, entry_attrs, *keys, **options):
         self.post_common_callback(ldap, dn, entry_attrs, *keys, **options)
         self.obj.get_preserved_attribute(entry_attrs, options)
+        if 'ipa_user_script' in self.api.env:
+            try:
+                self.log.debug("running %s %s %s" % (self.api.env.ipa_user_script, "add", dn))
+                run([self.api.env.ipa_user_script, "mod", "%s" % dn])
+            except:
+                self.log.error("error runing %s" % self.api.env.ipa_user_script)
+                pass
         return dn
 
 
